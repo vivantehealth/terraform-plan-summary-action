@@ -1,19 +1,70 @@
-name: 'The named action'
-description: "Does a useful thing"
+name: 'Terraform Plan Summary'
+description: "Summarizes a json terraform plan"
 inputs:
-  github_token:
-    description: GitHub token to use
+  json-tf-plan:
+    description: Path to json terraform plan file
     required: true
 outputs:
-  a_value:
-    description: A value that may be useful to another step
-    value: steps.date.outputs.date    
+  no-op-count:
+    description: Count of resources with no change
+  update-count:
+    description: Count of resources to update
+  delete-count:
+    description: Count of resource to delete
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
-    - name: Get current time
-      id: date
+    - run: env
       shell: bash
-      run: |
-        time=$(date)
-        echo "::set-output name=time::$(echo $time)"
+    - uses: actions/github-script@v6
+      with:
+        script: |
+          const plan = require("${{ inputs.json-tf-plan }}");
+
+          let actionMap = {}
+          for (resource of plan.resource_changes) {
+            const actions = resource.change.actions.join(",")
+            if (!actionMap.hasOwnProperty(actions)) {
+              actionMap[actions] = []
+            }
+            actionMap[resource.change.actions.join(",")].push(resource.address)
+          }
+          //console.log(actionMap);
+          function capitalize(s) {
+            return s[0].toUpperCase() + s.substring(1);
+          }
+
+          let summaryCounts = ""
+          let summaryTable = [[{data: 'Action', header: true}, {data: 'Count', header: true}]]
+          for (const [action, resources] of Object.entries(actionMap)) {
+            let pluralString = "s"
+            if (resources.length == 1) {
+              pluralString = ""
+            }
+            let emoji = ""
+            if (action.includes('update')) {
+              emoji = '⬆️'
+            } else if (action.includes('create')) {
+              emoji = '🆕'
+            } else if (action.includes('delete')) {
+              emoji = '❌'
+            } else if (action.includes('no-op')) {
+              emoji = '🟰'
+            }
+            const row = [`${emoji} ${capitalize(action)}`,` ${resources.length} resource${pluralString}`];
+            summaryTable.push(row);
+          }
+          console.log(summaryTable)
+
+          let summary = core.summary
+            .addHeading('Terraform Plan')
+            .addTable(summaryTable)
+            .addRaw('<details><summary>Resources</summary>')
+          for (const [action, resources] of Object.entries(actionMap)) {
+            if (action != "no-op") {
+              summary.addHeading(capitalize(action), 3);
+              summary.addList(resources);
+            }
+          }
+          summary.addRaw('</details>')
+            .write()
