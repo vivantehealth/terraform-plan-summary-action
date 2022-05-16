@@ -4,6 +4,10 @@ inputs:
   json-tf-plan:
     description: Path to json terraform plan file
     required: true
+  environment:
+    description: Environment where plan is being run. Populate this to help distinguish between multiple environments in a single workflow
+    default: ""
+    required: false
 outputs:
   no-op-count:
     description: Count of resources with no change
@@ -57,13 +61,24 @@ runs:
           console.log(summaryTable)
 
           let summary = core.summary
-            .addHeading('Terraform Plan')
+            .addHeading('${{ inputs.environment }} Terraform Plan')
             .addTable(summaryTable)
             .addRaw('<details><summary>Resources</summary>')
+          let noOpCount, updateCount, deleteCount = 0
           for (const [action, resources] of Object.entries(actionMap)) {
             if (action != "no-op") {
               summary.addHeading(capitalize(action), 3);
               summary.addList(resources);
+            }
+            // Generate outputs
+            if (action.includes("no-op")) {
+              noOpCount = noOpCount + 1
+            }
+            if (action.includes("update")) {
+              updateCount = updateCount + 1
+            }
+            if (action.includes("delete")) {
+              deleteCount = deleteCount + 1
             }
           }
           summary.addRaw('</details>')
