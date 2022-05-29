@@ -26,12 +26,14 @@ runs:
           const plan = require("${{ inputs.json-tf-plan }}");
 
           let actionMap = {}
-          for (resource of plan.resource_changes) {
-            const actions = resource.change.actions.join(",")
-            if (!actionMap.hasOwnProperty(actions)) {
-              actionMap[actions] = []
+          if (plan.resource_changes) {
+            for (resource of plan.resource_changes) {
+              const actions = resource.change.actions.join(",")
+              if (!actionMap.hasOwnProperty(actions)) {
+                actionMap[actions] = []
+              }
+              actionMap[resource.change.actions.join(",")].push(resource.address)
             }
-            actionMap[resource.change.actions.join(",")].push(resource.address)
           }
           //console.log(actionMap);
           function capitalize(s) {
