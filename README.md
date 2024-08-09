@@ -18,7 +18,7 @@ jobs:
         # use the non-wrapped binary instead
         run: |
           terraform-bin show -json planfile > tf-plan.json
-          echo "::set-output name=JSON_PLAN_PATH::$(realpath tf-plan.json)"
+          echo "JSON_PLAN_PATH=$(realpath tf-plan.json)"  >> $GITHUB_OUTPUT
       - name: Summarize plan
         id: plan-summary
         uses: vivantehealth/terraform-plan-summary-action@v0
